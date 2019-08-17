@@ -1,0 +1,88 @@
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  labels:
+    app: kiam
+    component: agent
+    release: kiam
+  name: kiam-agent
+spec:
+  template:
+    metadata:
+      labels:
+        app: kiam
+        component: agent
+        release: kiam
+    spec:
+      containers:
+      - args:
+        - --iptables
+        - --host-interface=eni+
+        - --json-log
+        - --level=debug
+        - --port=8181
+        - --cert=/etc/kiam/tls/tls.crt
+        - --key=/etc/kiam/tls/tls.key
+        - --ca=/etc/kiam/tls/ca.crt
+        - --server-address=kiam-server:443
+        - --prometheus-listen-addr=0.0.0.0:9620
+        - --prometheus-sync-interval=5s
+        - --gateway-timeout-creation=1s
+        command:
+        - /kiam
+        - agent
+        env:
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: GRPC_GO_LOG_SEVERITY_LEVEL
+          value: debug
+        - name: GRPC_GO_LOG_VERBOSITY_LEVEL
+          value: "8"
+        image: quay.io/uswitch/kiam:v3.3
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: 8181
+            scheme: HTTP
+          initialDelaySeconds: 3
+          periodSeconds: 3
+        name: kiam-agent
+        resources: {}
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+        volumeMounts:
+        - mountPath: /etc/kiam/tls
+          name: tls
+        - mountPath: /var/run/xtables.lock
+          name: xtables
+        - mountPath: /etc/ssl/certs
+          name: ssl-certs
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      nodeSelector:
+        kubernetes.io/role: node
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: kiam-agent
+      serviceAccountName: kiam-agent
+      volumes:
+      - name: tls
+        secret:
+          defaultMode: 420
+          secretName: kiam-agent-certificate-secret
+      - hostPath:
+          path: /run/xtables.lock
+          type: FileOrCreate
+        name: xtables
+      - hostPath:
+          path: /etc/pki/ca-trust/extracted/pem
+          type: ""
+        name: ssl-certs

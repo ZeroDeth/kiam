@@ -1,0 +1,71 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  labels:
+    app: kiam
+    component: "server"
+    release: kiam
+  name: kiam-read
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+      - pods
+    verbs:
+      - watch
+      - get
+      - list
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  labels:
+    app: kiam
+    component: "server"
+    release: kiam
+  name: kiam-write
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: kiam
+    component: "server"
+    release: kiam
+  name: kiam-read
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kiam-read
+subjects:
+  - kind: ServiceAccount
+    name: kiam-server
+    namespace: kiam
+
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: kiam
+    component: "server"
+    release: kiam
+  name: kiam-write
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kiam-write
+subjects:
+  - kind: ServiceAccount
+    name: kiam-server
+    namespace: kiam

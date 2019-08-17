@@ -1,0 +1,115 @@
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  labels:
+    app: kiam
+    component: server
+    release: kiam
+  name: kiam-server
+spec:
+  template:
+    metadata:
+      labels:
+        app: kiam
+        component: server
+        release: kiam
+    spec:
+      containers:
+      - args:
+        - --json-log
+        - --level=debug
+        - --bind=0.0.0.0:443
+        - --cert=/etc/kiam/tls/tls.crt
+        - --key=/etc/kiam/tls/tls.key
+        - --ca=/etc/kiam/tls/ca.crt
+        - --role-base-arn-autodetect
+        - --assume-role-arn=arn:aws:iam::<account-id>:role/kiam-server
+        - --session-duration=15m
+        - --sync=1m
+        - --prometheus-listen-addr=0.0.0.0:9620
+        - --prometheus-sync-interval=5s
+        command:
+        - /kiam
+        - server
+        env:
+        - name: GRPC_GO_LOG_SEVERITY_LEVEL
+          value: debug
+        - name: GRPC_GO_LOG_VERBOSITY_LEVEL
+          value: "8"
+        image: quay.io/uswitch/kiam:v3.3
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - /kiam
+            - health
+            - --cert=/etc/kiam/tls/tls.crt
+            - --key=/etc/kiam/tls/tls.key
+            - --ca=/etc/kiam/tls/ca.crt
+            - --server-address=127.0.0.1:443
+            - --server-address-refresh=2s
+            - --timeout=5s
+            - --gateway-timeout-creation=1s
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        name: kiam-server
+        readinessProbe:
+          exec:
+            command:
+            - /kiam
+            - health
+            - --cert=/etc/kiam/tls/tls.crt
+            - --key=/etc/kiam/tls/tls.key
+            - --ca=/etc/kiam/tls/ca.crt
+            - --server-address=127.0.0.1:443
+            - --server-address-refresh=2s
+            - --timeout=5s
+            - --gateway-timeout-creation=1s
+          initialDelaySeconds: 3
+          periodSeconds: 10
+          timeoutSeconds: 10
+        resources: {}
+        volumeMounts:
+        - mountPath: /etc/kiam/tls
+          name: tls
+        - mountPath: /etc/ssl/certs
+          name: ssl-certs
+      dnsPolicy: ClusterFirst
+      nodeSelector:
+        kubernetes.io/role: master
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: kiam-server
+      serviceAccountName: kiam-server
+      volumes:
+      - name: tls
+        secret:
+          defaultMode: 420
+          secretName: kiam-server-certificate-secret
+      - hostPath:
+          path: /etc/pki/ca-trust/extracted/pem
+          type: ""
+        name: ssl-certs
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kiam-server
+  labels:
+    app: kiam
+    component: "server"
+    release: kiam
+spec:
+  clusterIP: None
+  selector:
+    app: kiam
+    component: "server"
+    release: kiam
+  ports:
+    - name: grpclb
+      port: 443
+      targetPort: 443
+      protocol: TCP

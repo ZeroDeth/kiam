@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tst
+  labels:
+    name: tst
+  annotations:
+    iam.amazonaws.com/permitted: ".*"
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: ssm-tst
+  namespace: tst
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ssm-tst
+  minReadySeconds: 5
+  template:
+    metadata:
+      labels:
+        app: ssm-tst
+      annotations:
+        iam.amazonaws.com/role: app-role-*
+    spec:
+      containers:
+      - name: ssm-tst
+        image: "iotapi322/worker:v4"
+      nodeSelector:
+        kubernetes.io/role: node
